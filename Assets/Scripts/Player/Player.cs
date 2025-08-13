@@ -12,10 +12,14 @@ public class Player : MonoBehaviour
     [SerializeField] private Vector2 minMaxSpawnDelay;
     [SerializeField] private GameObject snakeBodyPrefab;
     [SerializeField] private GameObject foodPrefab;
+    [SerializeField] private GameObject preciousFoodPrefab;
+    [SerializeField] private GameObject speedUpPrefab;
     
     private Quaternion _headRotation;
     private Vector2Int _moveDirection;
     private Vector2Int _foodPosition;
+    private Vector2Int _preciousFoodPosition;
+    private Vector2Int _speedUpPosition;
     private Vector2Int _foodStandardPosition;
     
     private List<Vector2Int> _snakeBodyPositions;
@@ -29,8 +33,11 @@ public class Player : MonoBehaviour
     private bool _gameOver;
 
     private GameObject _food;
+    private GameObject _preciousFood;
+    private GameObject _speedUp;
 
     public static Action<int, Vector2> UpdateScore;
+    public static Action<string, Vector2> EventMessages;
     public static Action<bool> OnHitAction;
     void Start()
     {
@@ -41,7 +48,7 @@ public class Player : MonoBehaviour
     {
         _snakeBodyPositions = new List<Vector2Int>();
         _snakeBodySegments = new List<GameObject>();
-        _snakeDelay = new WaitForSeconds(reverseSpeed);
+        SpeedChanger(reverseSpeed);
 
         for (var i = 0; i < 4; i++)
         {
@@ -55,16 +62,25 @@ public class Player : MonoBehaviour
         _moveDirection = Vector2Int.right;
         _foodStandardPosition = new Vector2Int(Mathf.RoundToInt(gridSize.x * 2), Mathf.RoundToInt(gridSize.y * 2));
         _foodPosition = _foodStandardPosition;
+        _preciousFoodPosition =  _foodPosition;
+        _speedUpPosition = _foodPosition;
         
         _food = Instantiate(foodPrefab, new Vector3(_foodPosition.x, _foodPosition.y), Quaternion.identity);
+        _preciousFood = Instantiate(preciousFoodPrefab, new Vector3(_foodPosition.x, _foodPosition.y), Quaternion.identity);
+        _speedUp = Instantiate(speedUpPrefab, new Vector3(_foodPosition.x, _foodPosition.y), Quaternion.identity);
         
         _xBound = Mathf.RoundToInt(gridSize.x/2);
         _yBound = Mathf.RoundToInt(gridSize.y/2);
 
         
         StartCoroutine(WaitAndMoveRoutine());
-        StartCoroutine(SpawnFoodRoutine());
+        StartCoroutine(SpawnFoodRoutine()); 
         
+    }
+
+    void SpeedChanger(float reverseSpeedV)
+    {
+        _snakeDelay = new WaitForSeconds(reverseSpeedV);
     }
     
     private void Update()
@@ -144,10 +160,32 @@ public class Player : MonoBehaviour
         
         if (newHeadPos == _foodPosition)
         {
-            CreateSnakeBodySegments(_snakeBodyPositions[_snakeBodyPositions.Count - 1]);
+            var pos = _snakeBodyPositions[_snakeBodyPositions.Count - 1];
+            CreateSnakeBodySegments(pos);
             UpdateScore?.Invoke(_snakeBodyPositions.Count, _food.transform.position);
             _foodPosition = _foodStandardPosition;
+            _preciousFoodPosition = _foodStandardPosition;
             StartCoroutine(SpawnFoodRoutine());
+            
+            var randomSpawn = Random.Range(0, 4);
+            if (randomSpawn == 2) StartCoroutine(SpawnPreciousFoodRoutine());
+        }
+        else if (newHeadPos == _preciousFoodPosition)
+        {
+            var pos = _snakeBodyPositions[_snakeBodyPositions.Count - 1];
+            CreateSnakeBodySegments(pos);
+            UpdateScore?.Invoke(_snakeBodyPositions.Count * 2, _preciousFood.transform.position);
+            _preciousFoodPosition = _foodStandardPosition;
+            StartCoroutine(SpawnFoodRoutine());
+        }
+        else if (newHeadPos == _speedUpPosition)
+        {
+            EventMessages?.Invoke("Speed Up", _speedUpPosition);
+            _speedUpPosition = _foodStandardPosition;
+            _speedUp.transform.position = new Vector2(_foodStandardPosition.x, _foodStandardPosition.y);
+            SpeedChanger(0.07f);
+            StartCoroutine(SpeedUpRoutine());
+            _snakeBodyPositions.RemoveAt(_snakeBodyPositions.Count - 1);
         }
         else
             _snakeBodyPositions.RemoveAt(_snakeBodyPositions.Count - 1);
@@ -163,12 +201,25 @@ public class Player : MonoBehaviour
         _gameOver = true;
     }
     
-    void SpawnFood()
+    void SpawnFood(int id)
     {
         var x = Mathf.RoundToInt(Random.Range((-gridSize.x)/2+1, (gridSize.x)/2-1));
         var y = Mathf.RoundToInt(Random.Range((-gridSize.y)/2+1, (gridSize.y)/2-1));
-        _foodPosition = new Vector2Int(x, y);
-        _food.transform.position = new Vector3(x,y);
+        switch (id)
+        {
+            case 1:
+                _foodPosition = new Vector2Int(x, y);
+                _food.transform.position = new Vector3(x,y);
+                break;
+            case 2:
+                _preciousFoodPosition = new Vector2Int(x, y);
+                _preciousFood.transform.position = new Vector3(x,y);
+                break;
+            case 3:
+                _speedUpPosition = new Vector2Int(x, y);
+                _speedUp.transform.position = new Vector3(x,y);
+                break;
+        }
     }
     
     void CreateSnakeBodySegments(Vector2Int pos, bool isHead = false)
@@ -176,6 +227,11 @@ public class Player : MonoBehaviour
         var position = new Vector3(pos.x, pos.y, 0);
         var newSegment = Instantiate(snakeBodyPrefab, position, Quaternion.identity);
         _snakeBodySegments.Add(newSegment);
+
+        if (_snakeBodySegments.Count % 10 == 0)
+        {
+            StartCoroutine(SpawnSpeedUpRoutine());
+        }
 
         if (isHead)
         {
@@ -195,13 +251,35 @@ public class Player : MonoBehaviour
     IEnumerator SpawnFoodRoutine()
     {
         _food.transform.position = new Vector3(_foodStandardPosition.x, foodPrefab.transform.position.y);
+        _preciousFood.transform.position =  new Vector2(_foodStandardPosition.x, _foodStandardPosition.y);
         var delay = Random.Range(minMaxSpawnDelay.x, minMaxSpawnDelay.y);
         yield return new WaitForSeconds(delay);
-        SpawnFood();     
+        SpawnFood(1);     
     }
+    IEnumerator SpawnPreciousFoodRoutine()
+    {
+        _food.transform.position = new Vector3(_foodStandardPosition.x, foodPrefab.transform.position.y);
+        var delay = Random.Range(minMaxSpawnDelay.x, minMaxSpawnDelay.y);
+        yield return new WaitForSeconds(delay);
+        SpawnFood(2);     
+    }
+    IEnumerator SpawnSpeedUpRoutine()
+    {
+        var delay = Random.Range(minMaxSpawnDelay.x, minMaxSpawnDelay.y);
+        yield return new WaitForSeconds(delay);
+        SpawnFood(3);     
+    }
+
+    IEnumerator SpeedUpRoutine()
+    {
+        yield return new WaitForSeconds(7f); 
+        EventMessages?.Invoke("Speed Down", _snakeBodyPositions[0]);
+        SpeedChanger(reverseSpeed);
+    }
+
     IEnumerator OnHitRoutine(Vector2Int direction)
     {
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.2f);
         if (_moveDirection == direction)
         {
             GameManager.Instance.GameOver();

@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.SocialPlatforms.Impl;
 
 public class GameManager : MonoBehaviour
 {
@@ -10,6 +9,9 @@ public class GameManager : MonoBehaviour
     private int _currentScore;
 
     public static Action<int> OnGameOver;
+    
+    private int _errorCode;
+    private string _errorMessage;
 
     private void OnEnable()
     {
@@ -20,7 +22,6 @@ public class GameManager : MonoBehaviour
         
         Player.UpdateScore += UpdateScore;
     }
-    
     private void OnDisable()
     {
         Player.UpdateScore -= UpdateScore;
@@ -45,5 +46,20 @@ public class GameManager : MonoBehaviour
     public void ExitToMenu()
     {
         SceneManager.LoadScene("Menu");
+    }
+    
+    public void ReloadGame()
+    {
+        SceneManager.LoadScene("Loading");
+    }
+
+    void ForceQuit()
+    {
+        Quit();
+    }
+
+    public void Quit(bool isQuitWithError = false)
+    {
+        Application.Quit();
     }
 }

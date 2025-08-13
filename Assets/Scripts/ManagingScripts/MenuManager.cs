@@ -13,8 +13,13 @@ public class MenuManager : MonoBehaviour
         SceneManager.LoadScene("Leaderboard");
     }
 
-    public void Quit()
+    public void ReloadGame()
     {
-        
+        SceneManager.LoadScene("Loading");
+    }
+    
+    public void Quit(bool isQuitWithError = false)
+    {
+        Application.Quit();
     }
 }

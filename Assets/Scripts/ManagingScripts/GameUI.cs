@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 public class GameUI : MonoBehaviour
 {
@@ -22,6 +23,7 @@ public class GameUI : MonoBehaviour
         
         GameManager.OnGameOver += GameOver;
         Player.UpdateScore += AddedScoreNumber;
+        Player.EventMessages += PrintMessage;
     }
     
     void OnDisable()
@@ -42,13 +44,19 @@ public class GameUI : MonoBehaviour
         addedScoreText.text = "+" + ((bodyLength-1)*100);
         StartCoroutine(WaitAndTurnOff(addedScoreText.gameObject));
     }
+    void PrintMessage(string message, Vector2 position)
+    {
+        addedScoreText.gameObject.SetActive(true);
+        addedScoreText.gameObject.transform.position = position;
+        addedScoreText.text = message;
+        StartCoroutine(WaitAndTurnOff(addedScoreText.gameObject));
+    }
     
     void GameOver(int score)
     {
         gameOverText.SetActive(true);
         StartCoroutine(WaitAndTurnOff(gameOverText, 2, true, score));
     }
-
     IEnumerator WaitAndTurnOff(GameObject obj, float time = 0.3f, bool reset = false, int score = 0)
     {
         yield return new WaitForSeconds(time);
